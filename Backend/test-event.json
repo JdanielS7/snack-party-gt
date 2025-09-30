@@ -1,0 +1,9 @@
+{
+  "titulo_evento": "Cumpleaños de Prueba",
+  "tipo_evento": "Cumpleaños",
+  "fecha_evento": "2024-09-18",
+  "descripcion": "Evento de prueba para la galería",
+  "nombre_cliente": "Cliente Prueba",
+  "imagen_url": "/img/evento1.jpg"
+}
+
