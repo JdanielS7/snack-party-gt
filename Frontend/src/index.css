@@ -12,7 +12,13 @@ body {
 .page-container {
   background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
   min-height: 100vh;
-  padding-top: 80px; /* Espacio para el navbar fijo */
+  padding-top: 76px; /* Altura aproximada del navbar en móvil */
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    padding-top: 88px; /* Más espacio en desktop donde el navbar es más alto */
+  }
 }
 
 /* Estilos para las tarjetas principales */
