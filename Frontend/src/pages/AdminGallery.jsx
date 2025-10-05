@@ -6,6 +6,16 @@ export default function AdminGallery() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [editForm, setEditForm] = useState({
+    titulo_evento: "",
+    tipo_evento: "",
+    fecha_evento: "",
+    descripcion: "",
+    nombre_cliente: "",
+    imagen_url: ""
+  });
   const [form, setForm] = useState({
     titulo_evento: "",
     tipo_evento: "",
@@ -147,6 +157,67 @@ export default function AdminGallery() {
     } catch (e) {
       console.error(e);
       alert("No se pudo eliminar");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEdit = (e) => {
+    setEditingEvent(e);
+    setEditForm({
+      titulo_evento: e.titulo_evento || "",
+      tipo_evento: e.tipo_evento || "",
+      fecha_evento: e.fecha_evento ? new Date(e.fecha_evento).toISOString().slice(0,10) : "",
+      descripcion: e.descripcion || "",
+      nombre_cliente: e.nombre_cliente || "",
+      imagen_url: e.imagen_url || "",
+    });
+    setSelectedFile(null);
+    setEditOpen(true);
+  };
+
+  const handleEditChange = (ev) => {
+    const { name, value } = ev.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditFileChange = (ev) => {
+    const file = ev.target.files?.[0] || null;
+    setSelectedFile(file);
+    if (file) {
+      setEditForm((prev) => ({ ...prev, imagen_url: "" }));
+    }
+  };
+
+  const handleUpdate = async (ev) => {
+    ev.preventDefault();
+    try {
+      setLoading(true);
+      let imageUrl = editForm.imagen_url?.trim() || "";
+      if (selectedFile) {
+        imageUrl = await uploadImageToBackend(selectedFile);
+      }
+
+      const payload = { ...editForm, imagen_url: imageUrl || null };
+
+      const res = await fetch(`${API}/api/galeria/${editingEvent.id_evento}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Error actualizando evento");
+
+      setEditOpen(false);
+      setEditingEvent(null);
+      setSelectedFile(null);
+      await fetchEvents();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "No se pudo actualizar");
     } finally {
       setLoading(false);
     }
@@ -301,12 +372,20 @@ export default function AdminGallery() {
                   {e.descripcion && (
                     <p className="text-gray-600 text-sm mb-4 line-clamp-2">{e.descripcion}</p>
                   )}
-                  <button 
-                    onClick={() => handleDelete(e.id_evento)} 
-                    className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transform hover:scale-105 transition-all duration-300 shadow-lg"
-                  >
-                    Eliminar
-                  </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => openEdit(e)} 
+                      className="w-full bg-gradient-to-r from-yellow-400 to-yellow-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-yellow-500 hover:to-yellow-700 transform hover:scale-105 transition-all duration-300 shadow-lg"
+                    >
+                      Editar
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(e.id_evento)} 
+                      className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transform hover:scale-105 transition-all duration-300 shadow-lg"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -317,6 +396,46 @@ export default function AdminGallery() {
             </div>
           )}
         </div>
+
+        {editOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setEditOpen(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                aria-label="Cerrar"
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                onClick={() => setEditOpen(false)}
+              >
+                ✕
+              </button>
+              <h3 className="text-2xl font-bold text-gray-800 mb-6">Editar evento</h3>
+              <form onSubmit={handleUpdate} className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <input name="titulo_evento" value={editForm.titulo_evento} onChange={handleEditChange} placeholder="Título del evento" required className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors" />
+                  <input name="tipo_evento" value={editForm.tipo_evento} onChange={handleEditChange} placeholder="Tipo de evento" required className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors" />
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <input type="date" name="fecha_evento" value={editForm.fecha_evento} onChange={handleEditChange} required className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors" />
+                  <input name="nombre_cliente" value={editForm.nombre_cliente} onChange={handleEditChange} placeholder="Nombre del cliente" required className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors" />
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Imagen (archivo)</label>
+                    <input type="file" accept="image/*" onChange={handleEditFileChange} className="w-full border-2 border-gray-200 rounded-xl px-4 py-2 focus:border-yellow-400 focus:outline-none transition-colors bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">O URL de imagen</label>
+                    <input name="imagen_url" value={editForm.imagen_url} onChange={handleEditChange} placeholder="https://..." className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors" />
+                  </div>
+                </div>
+                <textarea name="descripcion" value={editForm.descripcion} onChange={handleEditChange} placeholder="Descripción" rows={4} className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors resize-none" />
+                <div className="flex gap-4 justify-end">
+                  <button type="button" onClick={() => setEditOpen(false)} className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-gray-400 hover:bg-gray-50 transition-all duration-300">Cancelar</button>
+                  <button disabled={loading || uploading} className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-white px-8 py-3 rounded-xl font-bold hover:from-yellow-500 hover:to-yellow-700 transform hover:scale-105 transition-all duration-300 shadow-lg disabled:opacity-50">Guardar cambios</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

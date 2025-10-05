@@ -5,6 +5,8 @@ export default function Gallery() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedFilter, setSelectedFilter] = useState("Todos");
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxEvent, setLightboxEvent] = useState(null);
 
   const API = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -133,7 +135,8 @@ export default function Gallery() {
                 <img 
                   src={event.imagen_url || "/img/evento1.jpg"} 
                   alt={event.titulo_evento || event.title} 
-                  className="w-full h-64 object-cover" 
+                  className="w-full h-64 object-cover cursor-zoom-in" 
+                  onClick={() => { setLightboxEvent(event); setIsLightboxOpen(true); }}
                   onError={(e) => {
                     e.target.src = "/img/evento1.jpg";
                   }}
@@ -166,6 +169,35 @@ export default function Gallery() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {isLightboxOpen && lightboxEvent && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" 
+          onClick={() => { setIsLightboxOpen(false); setLightboxEvent(null); }}
+        >
+          <div className="relative max-w-5xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              aria-label="Cerrar"
+              className="absolute -top-10 right-0 text-white bg-white/10 hover:bg-white/20 rounded-full p-2"
+              onClick={() => { setIsLightboxOpen(false); setLightboxEvent(null); }}
+            >
+              ✕
+            </button>
+            <img
+              src={lightboxEvent.imagen_url || "/img/evento1.jpg"}
+              alt={lightboxEvent.titulo_evento || lightboxEvent.title}
+              className="w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+              onError={(e) => { e.target.src = "/img/evento1.jpg"; }}
+            />
+            <div className="mt-4 text-center text-white">
+              <h3 className="text-2xl font-bold">{lightboxEvent.titulo_evento || lightboxEvent.title}</h3>
+              {(lightboxEvent.descripcion || lightboxEvent.testimonial) && (
+                <p className="mt-2 opacity-90">{lightboxEvent.descripcion || lightboxEvent.testimonial}</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

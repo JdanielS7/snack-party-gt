@@ -6,6 +6,17 @@ export default function AdminCatalog() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [editForm, setEditForm] = useState({
+    nombre: "",
+    descripcion: "",
+    tipo: "Barra",
+    es_popular: false,
+    detalles: "",
+    estado: "Activo",
+    imagen_url: ""
+  });
   const [form, setForm] = useState({
     nombre: "",
     descripcion: "",
@@ -136,6 +147,68 @@ export default function AdminCatalog() {
     } catch (e) {
       console.error(e);
       alert("No se pudo eliminar");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEdit = (it) => {
+    setEditingItem(it);
+    setEditForm({
+      nombre: it.nombre || "",
+      descripcion: it.descripcion || "",
+      tipo: it.tipo || "Barra",
+      es_popular: it.es_popular === true || it.es_popular === 1,
+      detalles: it.detalles || "",
+      estado: it.estado || "Activo",
+      imagen_url: it.imagen_url || "",
+    });
+    setSelectedFile(null);
+    setEditOpen(true);
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  };
+
+  const handleEditFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setSelectedFile(file);
+    if (file) {
+      setEditForm((prev) => ({ ...prev, imagen_url: "" }));
+    }
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      let imageUrl = editForm.imagen_url?.trim() || "";
+      if (selectedFile) {
+        imageUrl = await uploadImageToBackend(selectedFile);
+      }
+
+      const payload = { ...editForm, imagen_url: imageUrl || null };
+
+      const res = await fetch(`${API}/api/catalogo/${editingItem.id_item}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Error actualizando item");
+
+      setEditOpen(false);
+      setEditingItem(null);
+      setSelectedFile(null);
+      await fetchItems();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "No se pudo actualizar");
     } finally {
       setLoading(false);
     }
@@ -302,12 +375,20 @@ export default function AdminCatalog() {
                   {it.descripcion && (
                     <p className="text-gray-600 text-sm mb-4 line-clamp-2">{it.descripcion}</p>
                   )}
-                  <button 
-                    onClick={() => handleDelete(it.id_item)} 
-                    className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transform hover:scale-105 transition-all duration-300 shadow-lg"
-                  >
-                    Eliminar
-                  </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => openEdit(it)} 
+                      className="w-full bg-gradient-to-r from-yellow-400 to-yellow-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-yellow-500 hover:to-yellow-700 transform hover:scale-105 transition-all duration-300 shadow-lg"
+                    >
+                      Editar
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(it.id_item)} 
+                      className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transform hover:scale-105 transition-all duration-300 shadow-lg"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -318,6 +399,58 @@ export default function AdminCatalog() {
             </div>
           )}
         </div>
+
+        {editOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setEditOpen(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                aria-label="Cerrar"
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                onClick={() => setEditOpen(false)}
+              >
+                ✕
+              </button>
+              <h3 className="text-2xl font-bold text-gray-800 mb-6">Editar item</h3>
+              <form onSubmit={handleUpdate} className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <input name="nombre" value={editForm.nombre} onChange={handleEditChange} placeholder="Nombre" required className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors" />
+                  <select name="tipo" value={editForm.tipo} onChange={handleEditChange} className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors">
+                    <option value="Barra">Barra</option>
+                    <option value="Combo">Combo</option>
+                  </select>
+                </div>
+                <input name="detalles" value={editForm.detalles} onChange={handleEditChange} placeholder="Detalles" className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors" />
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Imagen (archivo)</label>
+                    <input type="file" accept="image/*" onChange={handleEditFileChange} className="w-full border-2 border-gray-200 rounded-xl px-4 py-2 focus:border-yellow-400 focus:outline-none transition-colors bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">O URL de imagen</label>
+                    <input name="imagen_url" value={editForm.imagen_url} onChange={handleEditChange} placeholder="https://..." className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors" />
+                  </div>
+                </div>
+                <textarea name="descripcion" value={editForm.descripcion} onChange={handleEditChange} placeholder="Descripción" rows={4} className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors resize-none" />
+                <div className="grid md:grid-cols-3 gap-6 items-center">
+                  <div className="flex items-center space-x-3">
+                    <input type="checkbox" name="es_popular" checked={editForm.es_popular} onChange={handleEditChange} className="w-5 h-5 text-yellow-400 border-2 border-gray-300 rounded focus:ring-yellow-400 focus:ring-2" />
+                    <label className="text-gray-700 font-medium">Popular</label>
+                  </div>
+                  <div className="md:col-span-2">
+                    <select name="estado" value={editForm.estado} onChange={handleEditChange} className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-yellow-400 focus:outline-none transition-colors">
+                      <option value="Activo">Activo</option>
+                      <option value="Inactivo">Inactivo</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-4 justify-end">
+                  <button type="button" onClick={() => setEditOpen(false)} className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-gray-400 hover:bg-gray-50 transition-all duration-300">Cancelar</button>
+                  <button disabled={loading || uploading} className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-white px-8 py-3 rounded-xl font-bold hover:from-yellow-500 hover:to-yellow-700 transform hover:scale-105 transition-all duration-300 shadow-lg disabled:opacity-50">Guardar cambios</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );
