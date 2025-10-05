@@ -6,6 +6,8 @@ export default function Catalog() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxItem, setLightboxItem] = useState(null);
 
   const API = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -119,15 +121,16 @@ export default function Catalog() {
                 <img 
                   src={product.imagen_url || "/img/snack.jpg"} 
                   alt={product.nombre || product.name} 
-                  className="w-full h-64 object-cover"
+                  className="w-full h-64 object-cover cursor-zoom-in"
+                  onClick={() => { setLightboxItem(product); setIsLightboxOpen(true); }}
                   onError={(e) => {
                     e.target.src = "/img/snack.jpg";
                   }}
                 />
-                <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center pointer-events-none">
                   <Link 
                     to="/quote" 
-                    className="opacity-0 hover:opacity-100 bg-yellow-400 text-black px-6 py-2 rounded-xl font-bold transition-all duration-300 transform hover:scale-105"
+                    className="opacity-0 hover:opacity-100 bg-yellow-400 text-black px-6 py-2 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 pointer-events-auto"
                   >
                     Ver Detalles
                   </Link>
@@ -173,6 +176,35 @@ export default function Catalog() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {isLightboxOpen && lightboxItem && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" 
+          onClick={() => { setIsLightboxOpen(false); setLightboxItem(null); }}
+        >
+          <div className="relative max-w-5xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              aria-label="Cerrar"
+              className="absolute -top-10 right-0 text-white bg-white/10 hover:bg-white/20 rounded-full p-2"
+              onClick={() => { setIsLightboxOpen(false); setLightboxItem(null); }}
+            >
+              ✕
+            </button>
+            <img
+              src={lightboxItem.imagen_url || "/img/snack.jpg"}
+              alt={lightboxItem.nombre || lightboxItem.name}
+              className="w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+              onError={(e) => { e.target.src = "/img/snack.jpg"; }}
+            />
+            <div className="mt-4 text-center text-white">
+              <h3 className="text-2xl font-bold">{lightboxItem.nombre || lightboxItem.name}</h3>
+              {(lightboxItem.descripcion || lightboxItem.description) && (
+                <p className="mt-2 opacity-90">{lightboxItem.descripcion || lightboxItem.description}</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
