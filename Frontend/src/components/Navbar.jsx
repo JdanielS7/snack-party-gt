@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import logo from "../assets/logo.png";
+import Logo from "./Logo";
 
 export default function Navbar({ isAdmin, user, onLogout }) {
   const [adminOpen, setAdminOpen] = useState(false);
@@ -10,13 +10,7 @@ export default function Navbar({ isAdmin, user, onLogout }) {
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-5">
         {/* Logo */}
         <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg border-2 border-yellow-400/30">
-            <img 
-              src={logo} 
-              alt="Snack Party Logo" 
-              className="w-full h-full object-cover"
-            />
-          </div>
+          <Logo className="w-12 h-12 border-2 border-yellow-400/30 shadow-lg" />
           <span className="text-3xl font-extrabold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent">
             Snack Party
           </span>

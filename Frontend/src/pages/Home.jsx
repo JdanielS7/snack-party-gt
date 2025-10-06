@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import logo from "../assets/logo.png";
+import Logo from "../components/Logo";
 
 export default function Home() {
   const [events, setEvents] = useState([]);
@@ -112,13 +112,7 @@ export default function Home() {
           <div className="mb-8">
             {/* Logo */}
             <div className="mb-6">
-              <div className="w-24 h-24 rounded-full overflow-hidden shadow-2xl border-4 border-yellow-400/30 mx-auto">
-                <img 
-                  src={logo} 
-                  alt="Snack Party Logo" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <Logo className="w-28 h-28 md:w-36 md:h-36 border-4 border-yellow-400/30 shadow-2xl mx-auto" />
             </div>
             <h1 className="text-6xl md:text-7xl font-extrabold mb-6 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent">
               Snack Party
