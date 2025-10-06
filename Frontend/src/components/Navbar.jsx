@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import logo from "../assets/logo.jpg";
+import logo from "../assets/logo.png";
 
 export default function Navbar({ isAdmin, user, onLogout }) {
   const [adminOpen, setAdminOpen] = useState(false);
