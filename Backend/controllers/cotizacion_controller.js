@@ -1,22 +1,112 @@
 const { executeQuery } = require('../db');
 const nodemailer = require('nodemailer');
+const https = require('https');
 
-// Configurar el transporter de nodemailer
+// Configurar el transporter de nodemailer (SMTP)
 const createTransporter = () => {
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
+    },
+    pool: true,
+    maxConnections: 1,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000
+  });
+};
+
+// Envío de correo usando API HTTP de Resend si RESEND_API_KEY está definido
+const sendViaResend = async (subject, htmlContent, textContent) => {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { success: false, error: 'RESEND_API_KEY no configurado' };
+
+  const toAddress = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+  const fromAddress = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+
+  const payload = {
+    from: fromAddress,
+    to: [toAddress],
+    subject: subject,
+    html: htmlContent,
+    text: textContent
+  };
+
+  const url = new URL('https://api.resend.com/emails');
+
+  // Preferir fetch nativo si está disponible (Node 18+)
+  if (typeof fetch === 'function') {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        return { success: false, error: `Resend API error: ${res.status} ${text}` };
+      }
+      const data = await res.json().catch(() => ({}));
+      return { success: true, id: data?.id };
+    } catch (err) {
+      return { success: false, error: err?.message || 'Error llamando a Resend' };
     }
+  }
+
+  // Fallback a https.request si no existe fetch
+  return new Promise((resolve) => {
+    const req = https.request({
+      hostname: url.hostname,
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const parsed = JSON.parse(data);
+            resolve({ success: true, id: parsed?.id });
+          } catch (_) {
+            resolve({ success: true });
+          }
+        } else {
+          resolve({ success: false, error: `Resend API error: ${res.statusCode} ${data}` });
+        }
+      });
+    });
+    req.on('error', (err) => resolve({ success: false, error: err?.message || 'Error de red Resend' }));
+    req.write(JSON.stringify(payload));
+    req.end();
   });
 };
 
 // Función para enviar email al administrador
 const sendEmailToAdmin = async (subject, htmlContent, textContent) => {
   try {
+    // Si hay API key de Resend, preferir canal HTTP (evita bloqueos SMTP en PaaS)
+    if (process.env.RESEND_API_KEY) {
+      const resp = await sendViaResend(subject, htmlContent, textContent);
+      if (!resp.success) {
+        console.error('Fallo envío Resend:', resp.error);
+        // Intentar SMTP como fallback
+      } else {
+        console.log('Email enviado (Resend):', resp.id || 'ok');
+        return { success: true, id: resp.id };
+      }
+    }
+
+    // Fallback a SMTP (Gmail). Puede fallar en proveedores que bloquean SMTP.
     const transporter = createTransporter();
-    
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
@@ -24,9 +114,8 @@ const sendEmailToAdmin = async (subject, htmlContent, textContent) => {
       html: htmlContent,
       text: textContent
     };
-
     const result = await transporter.sendMail(mailOptions);
-    console.log('Email enviado:', result.messageId);
+    console.log('Email enviado (SMTP):', result.messageId);
     return { success: true, messageId: result.messageId };
   } catch (error) {
     console.error('Error enviando email:', error);
