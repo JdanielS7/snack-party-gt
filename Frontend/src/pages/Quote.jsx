@@ -83,7 +83,8 @@ export default function Quote() {
       return;
     }
 
-    const token = localStorage.getItem('token');
+    const raw = localStorage.getItem('token');
+    const token = raw ? raw.replace(/^"|"$/g, '').trim() : '';
     if (!token) {
       setServerError('Debes iniciar sesión para enviar una cotización.');
       return;
@@ -166,6 +167,15 @@ export default function Quote() {
       });
 
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401 || res.status === 403) {
+        try {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('isAdmin');
+        } catch (_) {}
+        const msg = data?.error === 'Token expirado' ? 'Tu sesión expiró. Inicia sesión nuevamente.' : 'Token inválido. Por favor inicia sesión otra vez.';
+        throw new Error(msg);
+      }
       if (!res.ok) {
         throw new Error(data?.error || 'No se pudo crear la cotización');
       }

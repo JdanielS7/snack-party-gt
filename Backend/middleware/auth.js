@@ -9,9 +9,13 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'Token de acceso requerido' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret', (err, user) => {
+  const secret = process.env.JWT_SECRET || 'fallback_secret';
+  jwt.verify(token, secret, (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Token inválido' });
+      // Log mínimo para diagnóstico sin exponer detalles al cliente
+      console.warn('JWT verify failed:', err?.name || err?.message);
+      const message = err?.name === 'TokenExpiredError' ? 'Token expirado' : 'Token inválido';
+      return res.status(403).json({ error: message });
     }
     req.user = user;
     next();
