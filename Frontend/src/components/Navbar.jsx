@@ -5,16 +5,22 @@ import logo from "../assets/logo.jpg";
 export default function Navbar({ isAdmin, user, onLogout }) {
   const [adminOpen, setAdminOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const LOGO_URL = (import.meta.env.VITE_LOGO_URL || "").trim();
+  const LOGO_SRCSET = (import.meta.env.VITE_LOGO_SRCSET || "").trim();
   return (
     <nav className="fixed top-0 left-0 w-full bg-gradient-to-r from-gray-900 via-black to-gray-900 shadow-2xl backdrop-blur-sm z-50 border-b border-yellow-500/20">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-5">
         {/* Logo */}
         <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg border-2 border-yellow-400/30">
-            <img 
-              src={logo} 
-              alt="Snack Party Logo" 
-              className="w-full h-full object-cover"
+          <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg border-2 border-yellow-400/30 bg-white/5">
+            <img
+              src={LOGO_URL || logo}
+              srcSet={LOGO_SRCSET || undefined}
+              alt="Snack Party Logo"
+              loading="eager"
+              decoding="sync"
+              className="w-full h-full object-contain"
+              style={{ imageRendering: "-webkit-optimize-contrast" }}
             />
           </div>
           <span className="text-3xl font-extrabold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent">

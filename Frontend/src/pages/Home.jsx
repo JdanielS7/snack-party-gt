@@ -6,6 +6,8 @@ export default function Home() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const API = import.meta.env.VITE_API_URL || "http://localhost:3001";
+  const LOGO_URL = (import.meta.env.VITE_LOGO_URL || "").trim();
+  const LOGO_SRCSET = (import.meta.env.VITE_LOGO_SRCSET || "").trim();
 
   useEffect(() => {
     fetchLatestEvents();
@@ -112,11 +114,15 @@ export default function Home() {
           <div className="mb-8">
             {/* Logo */}
             <div className="mb-6">
-              <div className="w-24 h-24 rounded-full overflow-hidden shadow-2xl border-4 border-yellow-400/30 mx-auto">
-                <img 
-                  src={logo} 
-                  alt="Snack Party Logo" 
-                  className="w-full h-full object-cover"
+              <div className="w-32 h-32 md:w-36 md:h-36 rounded-full overflow-hidden shadow-2xl border-4 border-yellow-400/30 mx-auto bg-white/5">
+                <img
+                  src={LOGO_URL || logo}
+                  srcSet={LOGO_SRCSET || undefined}
+                  alt="Snack Party Logo"
+                  loading="eager"
+                  decoding="sync"
+                  className="w-full h-full object-contain"
+                  style={{ imageRendering: "-webkit-optimize-contrast" }}
                 />
               </div>
             </div>
