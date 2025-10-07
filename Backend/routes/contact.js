@@ -59,12 +59,17 @@ router.get('/test-email', async (req, res) => {
     const debugInfo = getEmailDebugInfo();
     const verify = await verifyTransporter();
 
-    if (!debugInfo.user || !debugInfo.passConfigured) {
-      return res.status(400).json({ success: false, error: 'EMAIL_USER/PASS faltantes', debugInfo, verify });
+    // Si provider es Resend, no requerimos EMAIL_USER/PASS
+    if (debugInfo.provider === 'smtp') {
+      if (!debugInfo.user || !debugInfo.passConfigured) {
+        return res.status(400).json({ success: false, error: 'EMAIL_USER/PASS faltantes', debugInfo, verify });
+      }
+    } else if (!debugInfo.resendConfigured) {
+      return res.status(400).json({ success: false, error: 'RESEND_API_KEY faltante', debugInfo, verify });
     }
 
     // no enviar correo real aquí para pruebas de conectividad
-    res.json({ success: verify.ok, verify, debugInfo });
+    res.json({ success: !!verify.ok, verify, debugInfo });
   } catch (error) {
     console.error('Error en prueba de email:', error);
     res.status(500).json({ 

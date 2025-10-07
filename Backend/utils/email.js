@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
 function toBool(value, defaultValue = false) {
   if (value === undefined || value === null || value === '') return defaultValue;
@@ -64,6 +65,19 @@ function getEmailConfig() {
   return { base, from };
 }
 
+function isResendEnabled() {
+  return !!process.env.RESEND_API_KEY;
+}
+
+function getFromAddress() {
+  return (
+    process.env.RESEND_FROM ||
+    process.env.EMAIL_FROM ||
+    process.env.EMAIL_USER ||
+    'no-reply@example.com'
+  );
+}
+
 function buildAlternativeOptions(primaryOptions) {
   // Flip between 465<->587 to try an alternative path
   const usePort465 = Number(primaryOptions.port) !== 465;
@@ -81,23 +95,29 @@ function createTransporter(opts) {
 }
 
 async function verifyTransporter() {
+  if (isResendEnabled()) {
+    // Resend no requiere verificación de transporte como SMTP; asumimos OK si hay API key
+    return { ok: true, provider: 'resend' };
+  }
+
   const { base } = getEmailConfig();
   const transporter = createTransporter(base);
   try {
     await transporter.verify();
-    return { ok: true, tried: [pickConnection(base)] };
+    return { ok: true, tried: [pickConnection(base)], provider: 'smtp' };
   } catch (error) {
     const altOpts = buildAlternativeOptions(base);
     const altTransporter = createTransporter(altOpts);
     try {
       await altTransporter.verify();
-      return { ok: true, tried: [pickConnection(base), pickConnection(altOpts)], used: 'alternative' };
+      return { ok: true, tried: [pickConnection(base), pickConnection(altOpts)], used: 'alternative', provider: 'smtp' };
     } catch (altError) {
       return {
         ok: false,
         tried: [pickConnection(base), pickConnection(altOpts)],
         error: serializeError(error),
-        altError: serializeError(altError)
+        altError: serializeError(altError),
+        provider: 'smtp'
       };
     }
   }
@@ -136,51 +156,72 @@ function pickConnection(opts) {
 
 async function sendEmailToAdmin(subject, htmlContent, textContent) {
   const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
-  const { base, from } = getEmailConfig();
 
-  const mailOptions = {
-    from,
-    to: adminEmail,
-    subject,
-    html: htmlContent,
-    text: textContent
-  };
+  if (!adminEmail) {
+    return { success: false, error: { message: 'ADMIN_EMAIL no configurado' } };
+  }
 
+  // Enviar con Resend si está habilitado
+  if (isResendEnabled()) {
+    const from = getFromAddress();
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    try {
+      const result = await resend.emails.send({
+        from,
+        to: adminEmail,
+        subject,
+        html: htmlContent,
+        text: textContent
+      });
+      return { success: true, messageId: result?.id, provider: 'resend' };
+    } catch (error) {
+      return { success: false, error: serializeError(error), provider: 'resend' };
+    }
+  }
+
+  // Fallback a SMTP (Nodemailer)
+  const { base } = getEmailConfig();
+  const from = getFromAddress();
+  const mailOptions = { from, to: adminEmail, subject, html: htmlContent, text: textContent };
   const primaryTransporter = createTransporter(base);
   try {
     const result = await primaryTransporter.sendMail(mailOptions);
-    return { success: true, messageId: result.messageId, transport: pickConnection(base) };
+    return { success: true, messageId: result.messageId, transport: pickConnection(base), provider: 'smtp' };
   } catch (error) {
     if (!isTimeoutError(error)) {
-      return { success: false, error: serializeError(error), transport: pickConnection(base) };
+      return { success: false, error: serializeError(error), transport: pickConnection(base), provider: 'smtp' };
     }
 
-    // Retry once with alternative settings (switch 465/587)
     const altOpts = buildAlternativeOptions(base);
     const altTransporter = createTransporter(altOpts);
     try {
       const result = await altTransporter.sendMail(mailOptions);
-      return { success: true, messageId: result.messageId, transport: pickConnection(altOpts), retryFromTimeout: true };
+      return { success: true, messageId: result.messageId, transport: pickConnection(altOpts), retryFromTimeout: true, provider: 'smtp' };
     } catch (altError) {
       return {
         success: false,
         error: serializeError(error),
         altError: serializeError(altError),
         transport: pickConnection(base),
-        altTransportTried: pickConnection(altOpts)
+        altTransportTried: pickConnection(altOpts),
+        provider: 'smtp'
       };
     }
   }
 }
 
 function getEmailDebugInfo() {
-  const { base, from } = getEmailConfig();
+  const provider = isResendEnabled() ? 'resend' : 'smtp';
+  const { base } = getEmailConfig();
+  const from = getFromAddress();
   return {
+    provider,
+    resendConfigured: !!process.env.RESEND_API_KEY,
     user: process.env.EMAIL_USER,
     passConfigured: !!process.env.EMAIL_PASS,
     adminEmail: process.env.ADMIN_EMAIL,
     from,
-    connection: pickConnection(base)
+    connection: provider === 'smtp' ? pickConnection(base) : undefined
   };
 }
 
