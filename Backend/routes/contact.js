@@ -1,39 +1,8 @@
 const express = require('express');
-const nodemailer = require('nodemailer');
+const { sendEmailToAdmin, verifyTransporter, getEmailDebugInfo } = require('../utils/email');
 const router = express.Router();
 
-// Configurar el transporter de nodemailer
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    service: 'gmail', // Puedes cambiar a otro servicio
-    auth: {
-      user: process.env.EMAIL_USER, // Tu email
-      pass: process.env.EMAIL_PASS  // Tu contraseña de aplicación
-    }
-  });
-};
-
-// Función para enviar email al administrador
-const sendEmailToAdmin = async (subject, htmlContent, textContent) => {
-  try {
-    const transporter = createTransporter();
-    
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER, // Email del administrador
-      subject: subject,
-      html: htmlContent,
-      text: textContent
-    };
-
-    const result = await transporter.sendMail(mailOptions);
-    console.log('Email enviado:', result.messageId);
-    return { success: true, messageId: result.messageId };
-  } catch (error) {
-    console.error('Error enviando email:', error);
-    return { success: false, error: error.message };
-  }
-};
+// sendEmailToAdmin ahora se importa desde utils/email con reintentos y timeouts
 
 // POST /api/contact - Enviar mensaje de contacto
 router.post('/', async (req, res) => {
@@ -65,7 +34,7 @@ router.post('/', async (req, res) => {
       Enviado desde el formulario de contacto de Snack Party
     `;
 
-    // Enviar email al administrador
+    // Enviar email al administrador (manejo de ETIMEDOUT con reintento 465/587)
     const emailResult = await sendEmailToAdmin(subject, htmlContent, textContent);
     
     if (!emailResult.success) {
@@ -84,42 +53,23 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Endpoint de prueba para verificar configuración de email
+// Endpoint de prueba para verificar configuración de email y conectividad
 router.get('/test-email', async (req, res) => {
   try {
-    console.log('Variables de email:');
-    console.log('EMAIL_USER:', process.env.EMAIL_USER);
-    console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'Configurada' : 'No configurada');
-    console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL);
-    
-    const transporter = createTransporter();
-    
-    const testEmail = {
-      from: process.env.EMAIL_USER,
-      to: process.env.ADMIN_EMAIL,
-      subject: 'Prueba de Email - Snack Party',
-      html: '<h2>Prueba de Email</h2><p>Este es un email de prueba para verificar la configuración.</p>',
-      text: 'Prueba de Email - Este es un email de prueba para verificar la configuración.'
-    };
+    const debugInfo = getEmailDebugInfo();
+    const verify = await verifyTransporter();
 
-    const result = await transporter.sendMail(testEmail);
-    console.log('Email de prueba enviado:', result.messageId);
-    
-    res.json({ 
-      success: true, 
-      message: 'Email de prueba enviado correctamente',
-      messageId: result.messageId 
-    });
+    if (!debugInfo.user || !debugInfo.passConfigured) {
+      return res.status(400).json({ success: false, error: 'EMAIL_USER/PASS faltantes', debugInfo, verify });
+    }
+
+    // no enviar correo real aquí para pruebas de conectividad
+    res.json({ success: verify.ok, verify, debugInfo });
   } catch (error) {
     console.error('Error en prueba de email:', error);
     res.status(500).json({ 
       success: false, 
-      error: error.message,
-      details: {
-        emailUser: process.env.EMAIL_USER,
-        emailPass: process.env.EMAIL_PASS ? 'Configurada' : 'No configurada',
-        adminEmail: process.env.ADMIN_EMAIL
-      }
+      error: error.message
     });
   }
 });
