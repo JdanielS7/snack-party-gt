@@ -1,38 +1,6 @@
 const { executeQuery } = require('../db');
-const nodemailer = require('nodemailer');
-
-// Configurar el transporter de nodemailer
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
-  });
-};
-
-// Función para enviar email al administrador
-const sendEmailToAdmin = async (subject, htmlContent, textContent) => {
-  try {
-    const transporter = createTransporter();
-    
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
-      subject: subject,
-      html: htmlContent,
-      text: textContent
-    };
-
-    const result = await transporter.sendMail(mailOptions);
-    console.log('Email enviado:', result.messageId);
-    return { success: true, messageId: result.messageId };
-  } catch (error) {
-    console.error('Error enviando email:', error);
-    return { success: false, error: error.message };
-  }
-};
+const { sendEmailToAdmin } = require('../utils/email');
+// sendEmailToAdmin ahora se importa desde utils/email con reintentos y timeouts
 
 // Crear nueva cotización
 const crearCotizacion = async (req, res) => {
