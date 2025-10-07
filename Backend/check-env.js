@@ -2,7 +2,8 @@
  * Script de diagnóstico para verificar variables de entorno
  */
 
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 console.log('🔍 Verificando archivo .env...\n');
 
@@ -17,7 +18,7 @@ console.log('PORT:', process.env.PORT || '❌ NO ENCONTRADA');
 console.log('JWT_SECRET:', process.env.JWT_SECRET ? '✅ ENCONTRADA' : '❌ NO ENCONTRADA');
 
 console.log('\n📁 Ruta del archivo .env esperada:');
-console.log(require('path').join(__dirname, '.env'));
+console.log(path.join(__dirname, '.env'));
 
 console.log('\n💡 Si las variables de Cloudinary no aparecen:');
 console.log('1. Asegúrate de que el archivo Backend/.env existe');

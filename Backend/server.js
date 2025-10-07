@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config();
+// Cargar variables de entorno desde Backend/.env sin depender del CWD
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 // Importar la configuración de la base de datos
 const { testConnection } = require('./db');
